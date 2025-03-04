@@ -111,3 +111,36 @@ This package should not be run or launched. Instead it provides the driver code 
 ### robotiq_2f_gripper_msgs
 
 This package should not be run or launched. Instead it provides a message template for the communication with the gripper.
+
+
+## Troubleshooting
+
+1. When launching the gripper:
+
+```
+ros2 launch robotiq_2f_gripper_hardware robotiq_2f_gripper_launch.py serial_port:=/dev/ttyUSB0
+
+```
+
+and you receive:
+
+```
+[robotiq_2f_gripper_node-1] terminate called after throwing an instance of 'serial::IOException'
+[robotiq_2f_gripper_node-1]   what():  IO Exception (2): No such file or directory, file /home/jannis.haberhausen/GitHub/robotiq_2f_gripper_ros2/src/serial-ros2/src/impl/unix.cc, line 152.
+```
+
+Fix: connect the USB of the robotiq gripper.
+
+2. When sending an action to the gripper action server:
+
+```
+ros2 action send_goal /robotiq_2f_gripper_action robotiq_2f_gripper_msgs/action/MoveTwoFingerGripper "{target_position: 0.05, target_speed: 0.1, target_force: 0.1}"
+```
+
+and you receive:
+
+```
+The passed action type is invalid
+```
+
+Fix: source your workspace in the new terminal ```source install/setup.bash```
