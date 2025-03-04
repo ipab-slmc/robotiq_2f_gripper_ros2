@@ -8,6 +8,12 @@ from launch.substitutions import LaunchConfiguration, Command, FindExecutable
 
 
 def generate_launch_description():
+    namespace_arg = DeclareLaunchArgument(
+        'namespace',
+        default_value='',
+        description='Namespace for the gripper (e.g., left, right)'
+    )
+    
     serial_port_arg = DeclareLaunchArgument(
         'serial_port',
         default_value='/dev/ttyUSB0',
@@ -41,13 +47,14 @@ def generate_launch_description():
     rviz2_arg = DeclareLaunchArgument(
         'rviz2',
         default_value='False',
-        description='Wether to launch rviz2 for simultaneous visualization'
+        description='Whether to launch rviz2 for simultaneous visualization'
     )
 
     robotiq_2f_gripper_node = Node(
         package='robotiq_2f_gripper_hardware',
         executable='robotiq_2f_gripper_node',
         name='robotiq_2f_gripper_node',
+        namespace=LaunchConfiguration('namespace'),
         output='screen',
         parameters=[{
             'serial_port': LaunchConfiguration('serial_port'),
@@ -71,13 +78,16 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('rviz2'))
     )
 
+    # Create a source list that includes the namespace
+    joint_states_topic = [LaunchConfiguration('namespace'), '/robotiq_2f_gripper/joint_states']
+    
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
         output='screen',
         parameters=[{
-            'source_list': ['/robotiq_2f_gripper/joint_states']
+            'source_list': [joint_states_topic]
         }],
         condition=IfCondition(LaunchConfiguration('rviz2'))
     )
@@ -90,6 +100,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        namespace_arg,
         serial_port_arg,
         baudrate_arg,
         timeout_arg,
