@@ -5,6 +5,7 @@ A ROS2 package for use with the Robotiq 2-Finger 140mm gripper.
 ## Overview
 
 The repo contains four ROS2 packages (detailed description below):
+
 | Package Name | Description |
 | --- | --- |
 | robotiq_2f_gripper_description | A description package containing the URDF and meshes of the gripper to be viewed in RViz  |
@@ -74,6 +75,35 @@ Listen to the current gripper state. The gripper state here is defined as a bool
 ros2 topic echo /robotiq_2f_gripper/object_grasped
 ```
 
+#### Controlling the Gripper via Topic Subscribers
+
+In addition to the action server, the gripper can also be controlled by publishing to the following topics:
+
+##### Confidence-based Control
+
+You can control the gripper by publishing confidence values between -1.0 and 1.0 to the confidence command topic:
+
+```bash
+ros2 topic pub /robotiq_2f_gripper/confidence_command std_msgs/msg/Float32MultiArray "data: [0.8]"  # Open with high confidence
+ros2 topic pub /robotiq_2f_gripper/confidence_command std_msgs/msg/Float32MultiArray "data: [-0.8]"  # Close with high confidence
+ros2 topic pub /robotiq_2f_gripper/confidence_command std_msgs/msg/Float32MultiArray "data: [0.0]"  # Neutral confidence
+```
+
+This command mode uses hysteresis to avoid oscillation:
+
+- Values > 0.2: Opens the gripper fully
+- Values < -0.2: Closes the gripper fully
+- Values between -0.2 and 0.2: Maintains current state (hysteresis band)
+
+##### Binary Control
+
+For direct binary control without hysteresis, publish exactly 1.0 (open) or -1.0 (close) to the binary command topic:
+
+```bash
+ros2 topic pub /robotiq_2f_gripper/binary_command std_msgs/msg/Float32MultiArray "data: [1.0]"  # Open
+ros2 topic pub /robotiq_2f_gripper/binary_command std_msgs/msg/Float32MultiArray "data: [-1.0]"  # Close
+```
+
 #### Launch Arguments when Starting the Hardware
 
 *fake_hardware* (default: false)
@@ -112,19 +142,18 @@ This package should not be run or launched. Instead it provides the driver code 
 
 This package should not be run or launched. Instead it provides a message template for the communication with the gripper.
 
-
 ## Troubleshooting
 
 1. When launching the gripper:
 
-```
+```bash
 ros2 launch robotiq_2f_gripper_hardware robotiq_2f_gripper_launch.py serial_port:=/dev/ttyUSB0
 
 ```
 
 and you receive:
 
-```
+```bash
 [robotiq_2f_gripper_node-1] terminate called after throwing an instance of 'serial::IOException'
 [robotiq_2f_gripper_node-1]   what():  IO Exception (2): No such file or directory, file /home/jannis.haberhausen/GitHub/robotiq_2f_gripper_ros2/src/serial-ros2/src/impl/unix.cc, line 152.
 ```
@@ -133,14 +162,18 @@ Fix: connect the USB of the robotiq gripper.
 
 2. When sending an action to the gripper action server:
 
-```
+```bash
 ros2 action send_goal /robotiq_2f_gripper_action robotiq_2f_gripper_msgs/action/MoveTwoFingerGripper "{target_position: 0.05, target_speed: 0.1, target_force: 0.1}"
 ```
 
 and you receive:
 
-```
+```bash
 The passed action type is invalid
 ```
 
-Fix: source your workspace in the new terminal ```source install/setup.bash```
+Fix: source your workspace in the new terminal
+
+```bash
+source install/setup.bash
+```
