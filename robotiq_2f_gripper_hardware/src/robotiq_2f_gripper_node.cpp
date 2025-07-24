@@ -17,8 +17,8 @@ using namespace std::placeholders;
 using robotiq_2f_gripper_interfaces::DefaultDriver;
 using robotiq_2f_gripper_interfaces::DefaultSerial;
 
-
-GripperNode::GripperNode() : Node("robotiq_2f_gripper_node") {
+GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
+{
     declare_parameter<std::string>("serial_port");
     serial_port_ = get_parameter("serial_port").as_string();
     RCLCPP_INFO(get_logger(), "Using serial port: %s", serial_port_.c_str());
@@ -43,7 +43,8 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node") {
     fake_hardware_ = get_parameter("fake_hardware").as_bool();
     RCLCPP_INFO(get_logger(), "Using fake hardware: %s", fake_hardware_ ? "true" : "false");
 
-    if (!fake_hardware_) {
+    if (!fake_hardware_)
+    {
         auto serial = std::make_unique<DefaultSerial>();
         serial->set_port(serial_port_);
         serial->set_baudrate(baudrate_);
@@ -82,44 +83,58 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node") {
     timer_2_ = create_wall_timer(
         std::chrono::milliseconds(50), std::bind(&GripperNode::update_gripper_state_callback, this));
 
+    // Create subscriber for Float32MultiArray to command the gripper
+    gripper_command_subscriber_ = create_subscription<std_msgs::msg::Float32MultiArray>(
+        "robotiq_2f_gripper/command", 10,
+        std::bind(&GripperNode::gripper_command_callback, this, _1));
+    RCLCPP_INFO(get_logger(), "Gripper command subscriber created");
+
     RCLCPP_INFO(get_logger(), "Gripper node initialized");
 }
 
-GripperNode::~GripperNode() {
-    if (!fake_hardware_) {
+GripperNode::~GripperNode()
+{
+    if (!fake_hardware_)
+    {
         driver_->deactivate();
         driver_->disconnect();
     }
 }
 
 rclcpp_action::GoalResponse GripperNode::handle_move_goal(
-    const rclcpp_action::GoalUUID& /*uuid*/,
+    const rclcpp_action::GoalUUID & /*uuid*/,
     std::shared_ptr<const SetPosition::Goal> goal)
 {
     RCLCPP_INFO(get_logger(), "Received goal request with %f meters", goal->target_position);
 
-    if (running_) {
+    if (running_)
+    {
         RCLCPP_WARN(get_logger(), "Discarding new goal request, previous goal still running");
         return rclcpp_action::GoalResponse::REJECT;
     }
 
-    if (!fake_hardware_) {
-        if (!driver_->is_gripper_active()) {
+    if (!fake_hardware_)
+    {
+        if (!driver_->is_gripper_active())
+        {
             RCLCPP_ERROR(get_logger(), "Gripper is not activated");
             return rclcpp_action::GoalResponse::REJECT;
         }
     }
 
     // Check if the goal is valid
-    if (goal->target_position < 0 || goal->target_position > 0.142) {
+    if (goal->target_position < 0 || goal->target_position > 0.142)
+    {
         RCLCPP_ERROR(get_logger(), "Invalid goal request, target position (in meters [m]) must be between 0 (fully closed) and 0.14 (fully open)");
         return rclcpp_action::GoalResponse::REJECT;
     }
-    if (goal->target_speed < 0 || goal->target_speed > 1) {
+    if (goal->target_speed < 0 || goal->target_speed > 1)
+    {
         RCLCPP_ERROR(get_logger(), "Invalid goal request, target speed must be between 0 and 1");
         return rclcpp_action::GoalResponse::REJECT;
     }
-    if (goal->target_force < 0 || goal->target_force > 1) {
+    if (goal->target_force < 0 || goal->target_force > 1)
+    {
         RCLCPP_ERROR(get_logger(), "Invalid goal request, target force must be between 0 and 1");
         return rclcpp_action::GoalResponse::REJECT;
     }
@@ -151,7 +166,8 @@ void GripperNode::execute(
     auto feedback = std::make_shared<SetPosition::Feedback>();
     auto result = std::make_shared<SetPosition::Result>();
 
-    if (fake_hardware_) {
+    if (fake_hardware_)
+    {
         gripper_position_ = goal->target_position;
         gripper_speed_ = 0;
         gripper_force_ = goal->target_force;
@@ -163,7 +179,8 @@ void GripperNode::execute(
         return;
     }
 
-    try {
+    try
+    {
         feedback->feedback = "Setting force";
         goal_handle->publish_feedback(feedback);
         driver_->set_force(convertToGripperSystem(goal->target_force));
@@ -189,13 +206,15 @@ void GripperNode::execute(
                 running_ = false;
                 return;
             }
-            
+
             // provide feedback about ongoing movement
             feedback->feedback = "Gripper is moving";
             goal_handle->publish_feedback(feedback);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-    } catch (const std::runtime_error& e) {
+    }
+    catch (const std::runtime_error &e)
+    {
         RCLCPP_ERROR(get_logger(), "Error executing goal: %s", e.what());
         result->success = false;
         goal_handle->abort(result);
@@ -208,66 +227,79 @@ void GripperNode::execute(
     running_ = false;
 }
 
-void GripperNode::update_joint_state_callback() {
-    if (running_) {
+void GripperNode::update_joint_state_callback()
+{
+    if (running_)
+    {
         return;
     }
 
     double curr_gripper_position;
     double curr_gripper_position_rad;
-    if (!fake_hardware_) {
+    if (!fake_hardware_)
+    {
         curr_gripper_position = static_cast<int>(driver_->get_gripper_position());
-        if (curr_gripper_position > FULLY_CLOSED_THRESHOLD) {
+        if (curr_gripper_position > FULLY_CLOSED_THRESHOLD)
+        {
             curr_gripper_position_rad = MAX_GRIPPER_POSITION_RAD;
-        } else {
+        }
+        else
+        {
             curr_gripper_position_rad = curr_gripper_position / FULLY_CLOSED_THRESHOLD * MAX_GRIPPER_POSITION_RAD;
         }
     }
-    else {
+    else
+    {
         curr_gripper_position_rad = ((-1 * gripper_position_) + MAX_GRIPPER_POSITION_METER) / MAX_GRIPPER_POSITION_METER * MAX_GRIPPER_POSITION_RAD;
     }
 
     auto message = sensor_msgs::msg::JointState();
     message.header.stamp = now();
-    message.name = {"finger_joint"};    
+    message.name = {"finger_joint"};
     message.position = {curr_gripper_position_rad};
     joint_state_publisher_->publish(message);
 }
 
-void GripperNode::update_gripper_state_callback() {
-    if (running_) {
+void GripperNode::update_gripper_state_callback()
+{
+    if (running_)
+    {
         return;
     }
 
     auto message = std_msgs::msg::Bool();
-    if (!fake_hardware_) {
-        message.data = { static_cast<bool>(driver_->is_object_grasped()) };
-    } else {
-        message.data = { false };
+    if (!fake_hardware_)
+    {
+        message.data = {static_cast<bool>(driver_->is_object_grasped())};
+    }
+    else
+    {
+        message.data = {false};
     }
     gripper_state_publisher_->publish(message);
 }
 
 uint8_t GripperNode::decimalToHex(int value)
 {
-  return static_cast<uint8_t>(std::clamp(value, 0, 255));
+    return static_cast<uint8_t>(std::clamp(value, 0, 255));
 }
 
 int GripperNode::convertToGripperSystemPosition(double position)
 {
-    if (position >= 0.015) {
+    if (position >= 0.015)
+    {
         double a = -1399.78;
         double b = -1328.11;
         double c = 218.384;
         return decimalToHex(static_cast<int>(a * pow(position, 2) + b * position + c));
-    } 
+    }
     else if (position >= 0.001)
     {
         double a = 18315;
         double b = -1849.82;
         double c = 223.626;
         return decimalToHex(static_cast<int>(a * pow(position, 2) + b * position + c));
-    } 
+    }
     else
     {
         return decimalToHex(255);
@@ -277,7 +309,8 @@ int GripperNode::convertToGripperSystemPosition(double position)
 // inverse of convertToGripperSystemPosition
 double GripperNode::convertToMillimeters(int value)
 {
-    if (value <= 200) {
+    if (value <= 200)
+    {
         double a = -3.84615e-07;
         double b = -5.67622e-04;
         double c = 0.142692;
@@ -301,8 +334,85 @@ int GripperNode::convertToGripperSystem(double value)
     return decimalToHex(static_cast<int>(value * 255));
 }
 
+void GripperNode::gripper_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+{
+    if (running_)
+    {
+        RCLCPP_WARN(get_logger(), "Ignoring command, gripper is already running an action");
+        return;
+    }
 
-int main(int argc, char ** argv)
+    if (msg->data.size() < 1)
+    {
+        RCLCPP_ERROR(get_logger(), "Received empty command array. Expected at least position data.");
+        return;
+    }
+
+    double position = msg->data[0];
+    double speed = (msg->data.size() > 1) ? msg->data[1] : 0.5; // Default speed 0.5
+    double force = (msg->data.size() > 2) ? msg->data[2] : 0.5; // Default force 0.5
+
+    // Validate inputs
+    if (position < 0 || position > 0.142)
+    {
+        RCLCPP_ERROR(get_logger(), "Invalid position value: %f. Must be between 0 (fully closed) and 0.142 (fully open)", position);
+        return;
+    }
+    if (speed < 0 || speed > 1)
+    {
+        RCLCPP_ERROR(get_logger(), "Invalid speed value: %f. Must be between 0 and 1", speed);
+        return;
+    }
+    if (force < 0 || force > 1)
+    {
+        RCLCPP_ERROR(get_logger(), "Invalid force value: %f. Must be between 0 and 1", force);
+        return;
+    }
+
+    RCLCPP_INFO(get_logger(), "Received gripper command: position=%f, speed=%f, force=%f", position, speed, force);
+
+    running_ = true;
+
+    if (fake_hardware_)
+    {
+        gripper_position_ = position;
+        gripper_speed_ = speed;
+        gripper_force_ = force;
+        RCLCPP_INFO(get_logger(), "[Fake Hardware] Gripper position set to %f", position);
+        running_ = false;
+        return;
+    }
+
+    try
+    {
+        driver_->set_force(convertToGripperSystem(force));
+        driver_->set_speed(convertToGripperSystem(speed));
+        driver_->set_gripper_position(convertToGripperSystemPosition(position));
+
+        auto start_time = std::chrono::steady_clock::now();
+        auto timeout = std::chrono::seconds(action_timeout_);
+        while (std::chrono::steady_clock::now() - start_time < timeout)
+        {
+            if (!driver_->gripper_is_moving())
+            {
+                RCLCPP_INFO(get_logger(), "Gripper movement completed.");
+                running_ = false;
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        RCLCPP_INFO(get_logger(), "Gripper movement timed out.");
+    }
+    catch (const std::runtime_error &e)
+    {
+        RCLCPP_ERROR(get_logger(), "Error executing command: %s", e.what());
+    }
+
+    running_ = false;
+}
+
+int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<GripperNode>();
