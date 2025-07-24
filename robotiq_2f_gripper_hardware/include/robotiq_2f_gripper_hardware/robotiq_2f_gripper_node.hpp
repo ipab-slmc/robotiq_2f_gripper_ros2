@@ -50,6 +50,7 @@ namespace robotiq_2f_gripper_hardware
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_state_publisher_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_command_subscriber_;
+        rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_binary_command_subscriber_;
 
         std::atomic<bool> running_{false};
         sensor_msgs::msg::JointState joint_state_;
@@ -65,6 +66,7 @@ namespace robotiq_2f_gripper_hardware
         void update_joint_state_callback();
         void update_gripper_state_callback();
         void gripper_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+        void gripper_binary_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
         uint8_t decimalToHex(int value);
         int convertToGripperSystemPosition(double position);

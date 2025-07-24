@@ -83,11 +83,17 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
     timer_2_ = create_wall_timer(
         std::chrono::milliseconds(50), std::bind(&GripperNode::update_gripper_state_callback, this));
 
-    // Create subscriber for Float32MultiArray to command the gripper
+    // Create subscriber for confidence-based gripper control with hysteresis
     gripper_command_subscriber_ = create_subscription<std_msgs::msg::Float32MultiArray>(
-        "robotiq_2f_gripper/command", 10,
+        "robotiq_2f_gripper/confidence_command", 10,
         std::bind(&GripperNode::gripper_command_callback, this, _1));
-    RCLCPP_INFO(get_logger(), "Gripper command subscriber created");
+    RCLCPP_INFO(get_logger(), "Gripper confidence command subscriber created");
+
+    // Create subscriber for direct gripper control (binary open/close)
+    gripper_binary_command_subscriber_ = create_subscription<std_msgs::msg::Float32MultiArray>(
+        "robotiq_2f_gripper/binary_command", 10,
+        std::bind(&GripperNode::gripper_binary_command_callback, this, _1));
+    RCLCPP_INFO(get_logger(), "Gripper binary command subscriber created");
 
     RCLCPP_INFO(get_logger(), "Gripper node initialized");
 }
@@ -452,6 +458,91 @@ void GripperNode::gripper_command_callback(const std_msgs::msg::Float32MultiArra
         previous_confidence_ = confidence;
         RCLCPP_DEBUG(get_logger(), "Confidence value %f within hysteresis zone, no action taken", confidence);
     }
+}
+
+void GripperNode::gripper_binary_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+{
+    if (running_)
+    {
+        RCLCPP_WARN(get_logger(), "Ignoring binary command, gripper is already running an action");
+        return;
+    }
+
+    if (msg->data.size() < 1)
+    {
+        RCLCPP_ERROR(get_logger(), "Received empty binary command array. Expected a value.");
+        return;
+    }
+
+    // Get the command value from the message
+    double value = msg->data[0];
+
+    // Validate input value (should be 1.0 for open or -1.0 for close)
+    if (std::abs(std::abs(value) - 1.0) > 0.01)
+    {
+        RCLCPP_ERROR(get_logger(), "Invalid binary command value: %f. Must be 1.0 (open) or -1.0 (close)", value);
+        return;
+    }
+
+    // Default speed and force for the gripper
+    double speed = 0.5; // Default speed 0.5
+    double force = 0.5; // Default force 0.5
+
+    // Calculate gripper position based on binary command
+    double position;
+
+    if (value > 0.0) // Positive value (1.0) means open
+    {
+        position = MAX_GRIPPER_POSITION_METER; // Fully open (0.142m)
+        RCLCPP_INFO(get_logger(), "Binary open command received, opening gripper");
+    }
+    else // Negative value (-1.0) means close
+    {
+        position = 0.0; // Fully closed
+        RCLCPP_INFO(get_logger(), "Binary close command received, closing gripper");
+    }
+
+    RCLCPP_INFO(get_logger(), "Setting gripper position to %f based on binary command %f", position, value);
+
+    running_ = true;
+
+    if (fake_hardware_)
+    {
+        gripper_position_ = position;
+        gripper_speed_ = speed;
+        gripper_force_ = force;
+        RCLCPP_INFO(get_logger(), "[Fake Hardware] Gripper position set to %f", position);
+        running_ = false;
+        return;
+    }
+
+    try
+    {
+        driver_->set_force(convertToGripperSystem(force));
+        driver_->set_speed(convertToGripperSystem(speed));
+        driver_->set_gripper_position(convertToGripperSystemPosition(position));
+
+        auto start_time = std::chrono::steady_clock::now();
+        auto timeout = std::chrono::seconds(action_timeout_);
+        while (std::chrono::steady_clock::now() - start_time < timeout)
+        {
+            if (!driver_->gripper_is_moving())
+            {
+                RCLCPP_INFO(get_logger(), "Gripper movement completed.");
+                running_ = false;
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        RCLCPP_INFO(get_logger(), "Gripper movement timed out.");
+    }
+    catch (const std::runtime_error &e)
+    {
+        RCLCPP_ERROR(get_logger(), "Error executing binary command: %s", e.what());
+    }
+
+    running_ = false;
 }
 
 int main(int argc, char **argv)
