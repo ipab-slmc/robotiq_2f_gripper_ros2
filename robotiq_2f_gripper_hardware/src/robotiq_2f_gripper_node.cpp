@@ -344,72 +344,114 @@ void GripperNode::gripper_command_callback(const std_msgs::msg::Float32MultiArra
 
     if (msg->data.size() < 1)
     {
-        RCLCPP_ERROR(get_logger(), "Received empty command array. Expected at least position data.");
+        RCLCPP_ERROR(get_logger(), "Received empty command array. Expected a confidence value.");
         return;
     }
 
-    double position = msg->data[0];
-    double speed = (msg->data.size() > 1) ? msg->data[1] : 0.5; // Default speed 0.5
-    double force = (msg->data.size() > 2) ? msg->data[2] : 0.5; // Default force 0.5
+    // Get the confidence value from the message
+    double confidence = msg->data[0];
 
-    // Validate inputs
-    if (position < 0 || position > 0.142)
+    // Validate input range
+    if (confidence < -1.0 || confidence > 1.0)
     {
-        RCLCPP_ERROR(get_logger(), "Invalid position value: %f. Must be between 0 (fully closed) and 0.142 (fully open)", position);
-        return;
-    }
-    if (speed < 0 || speed > 1)
-    {
-        RCLCPP_ERROR(get_logger(), "Invalid speed value: %f. Must be between 0 and 1", speed);
-        return;
-    }
-    if (force < 0 || force > 1)
-    {
-        RCLCPP_ERROR(get_logger(), "Invalid force value: %f. Must be between 0 and 1", force);
+        RCLCPP_ERROR(get_logger(), "Invalid confidence value: %f. Must be between -1.0 and 1.0", confidence);
         return;
     }
 
-    RCLCPP_INFO(get_logger(), "Received gripper command: position=%f, speed=%f, force=%f", position, speed, force);
+    // Using class member variables for hysteresis thresholds and state tracking
 
-    running_ = true;
+    // Default speed and force for the gripper
+    double speed = 0.5; // Default speed 0.5
+    double force = 0.5; // Default force 0.5
 
-    if (fake_hardware_)
+    // Calculate gripper position based on confidence with hysteresis
+    double position;
+
+    // If it's the first command or if confidence crosses thresholds
+    if (initial_command_ ||
+        (confidence > OPEN_THRESHOLD && previous_confidence_ <= OPEN_THRESHOLD) ||
+        (confidence < CLOSE_THRESHOLD && previous_confidence_ >= CLOSE_THRESHOLD))
     {
-        gripper_position_ = position;
-        gripper_speed_ = speed;
-        gripper_force_ = force;
-        RCLCPP_INFO(get_logger(), "[Fake Hardware] Gripper position set to %f", position);
-        running_ = false;
-        return;
-    }
-
-    try
-    {
-        driver_->set_force(convertToGripperSystem(force));
-        driver_->set_speed(convertToGripperSystem(speed));
-        driver_->set_gripper_position(convertToGripperSystemPosition(position));
-
-        auto start_time = std::chrono::steady_clock::now();
-        auto timeout = std::chrono::seconds(action_timeout_);
-        while (std::chrono::steady_clock::now() - start_time < timeout)
+        // Determine position based on confidence
+        if (confidence > OPEN_THRESHOLD)
         {
-            if (!driver_->gripper_is_moving())
+            position = MAX_GRIPPER_POSITION_METER; // Fully open (0.142m)
+            RCLCPP_INFO(get_logger(), "Confidence value %f exceeds open threshold, opening gripper", confidence);
+        }
+        else if (confidence < CLOSE_THRESHOLD)
+        {
+            position = 0.0; // Fully closed
+            RCLCPP_INFO(get_logger(), "Confidence value %f below close threshold, closing gripper", confidence);
+        }
+        else
+        {
+            // In the deadband - keep previous state if not the first command
+            if (initial_command_)
             {
-                RCLCPP_INFO(get_logger(), "Gripper movement completed.");
-                running_ = false;
+                position = MAX_GRIPPER_POSITION_METER / 2.0; // Middle position for first command
+                RCLCPP_INFO(get_logger(), "Initial confidence in deadband %f, setting to middle position", confidence);
+            }
+            else
+            {
+                // No change due to hysteresis
+                previous_confidence_ = confidence;
+                RCLCPP_INFO(get_logger(), "Confidence value %f in hysteresis zone, maintaining current state", confidence);
                 return;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
-        RCLCPP_INFO(get_logger(), "Gripper movement timed out.");
-    }
-    catch (const std::runtime_error &e)
-    {
-        RCLCPP_ERROR(get_logger(), "Error executing command: %s", e.what());
-    }
+        RCLCPP_INFO(get_logger(), "Setting gripper position to %f based on confidence %f", position, confidence);
 
-    running_ = false;
+        // Remember for hysteresis
+        previous_confidence_ = confidence;
+        initial_command_ = false;
+
+        running_ = true;
+
+        if (fake_hardware_)
+        {
+            gripper_position_ = position;
+            gripper_speed_ = speed;
+            gripper_force_ = force;
+            RCLCPP_INFO(get_logger(), "[Fake Hardware] Gripper position set to %f", position);
+            running_ = false;
+            return;
+        }
+
+        try
+        {
+            driver_->set_force(convertToGripperSystem(force));
+            driver_->set_speed(convertToGripperSystem(speed));
+            driver_->set_gripper_position(convertToGripperSystemPosition(position));
+
+            auto start_time = std::chrono::steady_clock::now();
+            auto timeout = std::chrono::seconds(action_timeout_);
+            while (std::chrono::steady_clock::now() - start_time < timeout)
+            {
+                if (!driver_->gripper_is_moving())
+                {
+                    RCLCPP_INFO(get_logger(), "Gripper movement completed.");
+                    running_ = false;
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+
+            RCLCPP_INFO(get_logger(), "Gripper movement timed out.");
+        }
+        catch (const std::runtime_error &e)
+        {
+            RCLCPP_ERROR(get_logger(), "Error executing command: %s", e.what());
+        }
+
+        running_ = false;
+    }
+    else
+    {
+        // Update previous confidence but don't send new command (within hysteresis band)
+        previous_confidence_ = confidence;
+        RCLCPP_DEBUG(get_logger(), "Confidence value %f within hysteresis zone, no action taken", confidence);
+    }
 }
 
 int main(int argc, char **argv)

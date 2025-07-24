@@ -40,6 +40,12 @@ namespace robotiq_2f_gripper_hardware
         double gripper_speed_;
         double gripper_force_;
 
+        // Variables for confidence-based control with hysteresis
+        double previous_confidence_{0.0};
+        bool initial_command_{true};
+        const double OPEN_THRESHOLD{0.2};
+        const double CLOSE_THRESHOLD{-0.2};
+
         rclcpp_action::Server<SetPosition>::SharedPtr action_server_;
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_state_publisher_;
