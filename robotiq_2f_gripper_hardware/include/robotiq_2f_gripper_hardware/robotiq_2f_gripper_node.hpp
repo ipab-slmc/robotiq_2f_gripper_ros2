@@ -19,21 +19,17 @@
 namespace robotiq_2f_gripper_hardware
 {
 
-using SetPosition = robotiq_2f_gripper_msgs::action::MoveTwoFingerGripper;
-using robotiq_2f_gripper_interfaces::DefaultDriver;
-using robotiq_2f_gripper_interfaces::DefaultSerial;
+    using SetPosition = robotiq_2f_gripper_msgs::action::MoveTwoFingerGripper;
+    using robotiq_2f_gripper_interfaces::DefaultDriver;
+    using robotiq_2f_gripper_interfaces::DefaultSerial;
 
-class GripperNode : public rclcpp::Node
-{
+    class GripperNode : public rclcpp::Node
+    {
     public:
         GripperNode();
         ~GripperNode();
 
     private:
-        void loadConfig(const std::string &config_file);
-
-    private:
-        // Hardware settings (loaded from config)
         std::string serial_port_;
         int baudrate_;
         double timeout_;
@@ -42,8 +38,13 @@ class GripperNode : public rclcpp::Node
         bool fake_hardware_;
         std::unique_ptr<DefaultDriver> driver_;
 
-        // Topic names (loaded from config)
-        std::map<std::string, std::string> topic_names_;
+        // Topic names
+        std::string gripper_action_topic = "robotiq_2f_gripper_action";
+        std::string joint_state_topic = "robotiq_2f_gripper/joint_states";
+        std::string object_grasped_topic = "robotiq_2f_gripper/object_grasped";
+        std::string finger_distance_mm_topic = "robotiq_2f_gripper/finger_distance_mm";
+        std::string confidence_command_topic = "robotiq_2f_gripper/confidence_command";
+        std::string binary_command_topic = "robotiq_2f_gripper/binary_command";
 
         // Constants (loaded from config)
         double OPEN_THRESHOLD;  // threshold for opening the gripper during confidence-based control
@@ -65,9 +66,9 @@ class GripperNode : public rclcpp::Node
 
         rclcpp_action::Server<SetPosition>::SharedPtr action_server_;
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_state_publisher_;
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr finger_distance_publisher_;
-        rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_command_subscriber_;
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr object_grasped_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr finger_distance_mm_publisher_;
+        rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_confidence_command_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_binary_command_subscriber_;
 
         std::atomic<bool> running_{false};
@@ -79,10 +80,12 @@ class GripperNode : public rclcpp::Node
             std::shared_ptr<const SetPosition::Goal> goal);
         rclcpp_action::CancelResponse handle_cancel_move(
             const std::shared_ptr<rclcpp_action::ServerGoalHandle<SetPosition>> /*goal_handle*/);
+
+        void loadConfig(const std::string &config_file);
         void handle_move_accepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<SetPosition>> goal_handle);
         void execute(const std::shared_ptr<rclcpp_action::ServerGoalHandle<SetPosition>> goal_handle);
         void update_joint_state_callback();
-        void update_gripper_state_callback();
+        void update_object_grasped_callback();
         void gripper_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
         void gripper_binary_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
