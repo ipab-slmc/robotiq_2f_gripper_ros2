@@ -78,7 +78,7 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
     joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>("robotiq_2f_gripper/joint_states", 1);
     finger_distance_publisher_ = create_publisher<std_msgs::msg::Float32>("robotiq_2f_gripper/finger_distance", 1);
     timer_1_ = create_wall_timer(
-        std::chrono::milliseconds(500), std::bind(&GripperNode::update_joint_state_callback, this));
+        std::chrono::milliseconds(50), std::bind(&GripperNode::update_joint_state_callback, this));
 
     gripper_state_publisher_ = create_publisher<std_msgs::msg::Bool>("robotiq_2f_gripper/object_grasped", 1);
     timer_2_ = create_wall_timer(
