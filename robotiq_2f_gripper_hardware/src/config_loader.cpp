@@ -15,7 +15,10 @@ namespace robotiq_2f_gripper_hardware
             OPEN_THRESHOLD = config["open_threshold"].as<double>(0.2);
             CLOSE_THRESHOLD = config["close_threshold"].as<double>(-0.2);
 
-            RCLCPP_INFO(get_logger(), "Constants loaded from config file");
+            RCLCPP_INFO(get_logger(), "Constants loaded from config file: %s", config_file.c_str());
+
+            // Loaded parameters
+            RCLCPP_INFO(get_logger(), "OPEN_THRESHOLD: %f, CLOSE_THRESHOLD: %f", OPEN_THRESHOLD, CLOSE_THRESHOLD);
         }
 
         catch (const YAML::ParserException &e)
