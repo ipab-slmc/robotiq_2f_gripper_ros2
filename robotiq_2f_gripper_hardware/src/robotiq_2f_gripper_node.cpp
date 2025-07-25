@@ -9,9 +9,6 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <std_msgs/msg/bool.hpp>
 
-#include <robotiq_2f_gripper_interfaces/default_driver.hpp>
-#include <robotiq_2f_gripper_interfaces/default_serial.hpp>
-
 #include <robotiq_2f_gripper_hardware/robotiq_2f_gripper_node.hpp>
 
 using namespace robotiq_2f_gripper_hardware;

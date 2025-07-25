@@ -18,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(serial REQUIRED)
 find_package(robotiq_2f_gripper_interfaces REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 include_directories(
   include
@@ -37,6 +38,7 @@ ament_target_dependencies(robotiq_2f_gripper_node
   serial
   robotiq_2f_gripper_msgs
   std_msgs
+  ament_index_cpp
   sensor_msgs 
   robotiq_2f_gripper_interfaces
 )

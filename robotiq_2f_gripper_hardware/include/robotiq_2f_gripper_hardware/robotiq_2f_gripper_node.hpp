@@ -13,16 +13,18 @@
 #include <yaml-cpp/yaml.h>
 
 #include <robotiq_2f_gripper_msgs/action/move_two_finger_gripper.hpp>
+#include <robotiq_2f_gripper_interfaces/default_driver.hpp>
+#include <robotiq_2f_gripper_interfaces/default_serial.hpp>
 
 namespace robotiq_2f_gripper_hardware
 {
 
-    using SetPosition = robotiq_2f_gripper_msgs::action::MoveTwoFingerGripper;
-    using robotiq_2f_gripper_interfaces::DefaultDriver;
-    using robotiq_2f_gripper_interfaces::DefaultSerial;
+using SetPosition = robotiq_2f_gripper_msgs::action::MoveTwoFingerGripper;
+using robotiq_2f_gripper_interfaces::DefaultDriver;
+using robotiq_2f_gripper_interfaces::DefaultSerial;
 
-    class GripperNode : public rclcpp::Node
-    {
+class GripperNode : public rclcpp::Node
+{
     public:
         GripperNode();
         ~GripperNode();
