@@ -72,7 +72,7 @@ namespace robotiq_2f_gripper_hardware
 
         uint8_t decimalToHex(int value);
         int convertToGripperSystemPosition(double position);
-        double convertToMillimeters(int value);
+        double convertToMeters(int value);
         int convertToGripperSystem(double value);
     };
 
