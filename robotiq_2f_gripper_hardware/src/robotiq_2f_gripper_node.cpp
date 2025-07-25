@@ -76,6 +76,7 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
         std::bind(&GripperNode::handle_move_accepted, this, _1));
 
     joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>("robotiq_2f_gripper/joint_states", 1);
+    finger_distance_publisher_ = create_publisher<std_msgs::msg::Float32>("robotiq_2f_gripper/finger_distance", 1);
     timer_1_ = create_wall_timer(
         std::chrono::milliseconds(500), std::bind(&GripperNode::update_joint_state_callback, this));
 
@@ -242,9 +243,14 @@ void GripperNode::update_joint_state_callback()
 
     double curr_gripper_position;
     double curr_gripper_position_rad;
+    double finger_distance_mm;
     if (!fake_hardware_)
     {
         curr_gripper_position = static_cast<int>(driver_->get_gripper_position());
+
+        // Calculate the finger distance in millimeters using the existing function
+        finger_distance_mm = convertToMillimeters(curr_gripper_position) * 1000; // Convert from meters to mm
+
         if (curr_gripper_position > FULLY_CLOSED_THRESHOLD)
         {
             curr_gripper_position_rad = MAX_GRIPPER_POSITION_RAD;
@@ -257,13 +263,20 @@ void GripperNode::update_joint_state_callback()
     else
     {
         curr_gripper_position_rad = ((-1 * gripper_position_) + MAX_GRIPPER_POSITION_METER) / MAX_GRIPPER_POSITION_METER * MAX_GRIPPER_POSITION_RAD;
+        finger_distance_mm = gripper_position_ * 1000; // Convert from meters to mm
     }
 
+    // Publish joint state
     auto message = sensor_msgs::msg::JointState();
     message.header.stamp = now();
     message.name = {"finger_joint"};
     message.position = {curr_gripper_position_rad};
     joint_state_publisher_->publish(message);
+
+    // Publish finger distance in millimeters
+    auto distance_msg = std_msgs::msg::Float32();
+    distance_msg.data = finger_distance_mm;
+    finger_distance_publisher_->publish(distance_msg);
 }
 
 void GripperNode::update_gripper_state_callback()

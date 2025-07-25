@@ -5,6 +5,7 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <thread>
 
@@ -49,6 +50,7 @@ namespace robotiq_2f_gripper_hardware
         rclcpp_action::Server<SetPosition>::SharedPtr action_server_;
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_state_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr finger_distance_publisher_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_command_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_binary_command_subscriber_;
 
