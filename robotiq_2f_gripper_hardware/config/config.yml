@@ -1,0 +1,23 @@
+# Robotiq 2F Gripper Configuration
+# Hardware settings
+hardware:
+  serial_port: /dev/ttyUSB0
+  baudrate: 115200
+  timeout: 1.0
+  action_timeout: 20
+  slave_address: 9
+  fake_hardware: false
+
+# Topic names
+topics:
+  position_state: "gripper_position"
+  velocity_state: "gripper_velocity"
+  joint_state: "joint_states"
+  is_moving_state: "is_moving"
+  object_detected_state: "object_detected"
+  finger_distance_mm: "finger_distance_mm"
+
+# Constants
+constants:
+  open_threshold: 0.2
+  close_threshold: -0.2

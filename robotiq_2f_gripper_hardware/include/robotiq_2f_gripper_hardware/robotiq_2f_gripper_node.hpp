@@ -8,6 +8,9 @@
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <thread>
+#include <string>
+#include <map>
+#include <yaml-cpp/yaml.h>
 
 #include <robotiq_2f_gripper_msgs/action/move_two_finger_gripper.hpp>
 
@@ -25,6 +28,10 @@ namespace robotiq_2f_gripper_hardware
         ~GripperNode();
 
     private:
+        void loadConfig(const std::string &config_file);
+
+    private:
+        // Hardware settings (loaded from config)
         std::string serial_port_;
         int baudrate_;
         double timeout_;
@@ -33,10 +40,19 @@ namespace robotiq_2f_gripper_hardware
         bool fake_hardware_;
         std::unique_ptr<DefaultDriver> driver_;
 
+        // Topic names (loaded from config)
+        std::map<std::string, std::string> topic_names_;
+
+        // Constants (loaded from config)
+        double OPEN_THRESHOLD;  // threshold for opening the gripper during confidence-based control
+        double CLOSE_THRESHOLD; // threshold for closing the gripper during confidence-based control
+
+        // Constants
         const double MAX_GRIPPER_POSITION_METER = 0.142; // distance between fingers in meters
         const int FULLY_CLOSED_THRESHOLD = 226;          // gripper position value (from hexadecimal gripper system interpreted as int) when first fully closed (226 to 255 is fully closed)
         const double MAX_GRIPPER_POSITION_RAD = 0.7;     // upper limit of the gripper in radians (0.7 is fully closed)
 
+        // State variables
         double gripper_position_;
         double gripper_speed_;
         double gripper_force_;
@@ -44,8 +60,6 @@ namespace robotiq_2f_gripper_hardware
         // Variables for confidence-based control with hysteresis
         double previous_confidence_{0.0};
         bool initial_command_{true};
-        const double OPEN_THRESHOLD{0.2};
-        const double CLOSE_THRESHOLD{-0.2};
 
         rclcpp_action::Server<SetPosition>::SharedPtr action_server_;
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;

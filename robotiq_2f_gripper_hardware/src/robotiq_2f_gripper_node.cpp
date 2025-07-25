@@ -3,8 +3,10 @@
 #include <iostream>
 #include <memory>
 #include <cmath>
+#include <fstream>
 
 #include <rclcpp/rclcpp.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <std_msgs/msg/bool.hpp>
 
 #include <robotiq_2f_gripper_interfaces/default_driver.hpp>
@@ -19,27 +21,44 @@ using robotiq_2f_gripper_interfaces::DefaultSerial;
 
 GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
 {
-    declare_parameter<std::string>("serial_port");
+    // Declare parameter for config file path
+    declare_parameter<std::string>("config_file", "");
+    std::string config_file = get_parameter("config_file").as_string();
+    
+    if (config_file.empty()) {
+        // Use package share directory to get the default config file
+        std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("robotiq_2f_gripper_hardware");
+        config_file = pkg_share_dir + "/config/config.yml";
+        RCLCPP_INFO(get_logger(), "No config file specified, using default: %s", config_file.c_str());
+    } else {
+        RCLCPP_INFO(get_logger(), "Using config file: %s", config_file.c_str());
+    }
+    
+    // Load configuration from file
+    loadConfig(config_file);
+    
+    // Still declare parameters for backward compatibility and to allow override
+    declare_parameter<std::string>("serial_port", serial_port_);
     serial_port_ = get_parameter("serial_port").as_string();
     RCLCPP_INFO(get_logger(), "Using serial port: %s", serial_port_.c_str());
 
-    declare_parameter<int>("baudrate");
+    declare_parameter<int>("baudrate", baudrate_);
     baudrate_ = get_parameter("baudrate").as_int();
     RCLCPP_INFO(get_logger(), "Using baudrate: %d", baudrate_);
 
-    declare_parameter<double>("timeout");
+    declare_parameter<double>("timeout", timeout_);
     timeout_ = get_parameter("timeout").as_double();
     RCLCPP_INFO(get_logger(), "Using timeout: %f", timeout_);
 
-    declare_parameter<int>("action_timeout");
+    declare_parameter<int>("action_timeout", action_timeout_);
     action_timeout_ = get_parameter("action_timeout").as_int();
     RCLCPP_INFO(get_logger(), "Using action timeout: %d", action_timeout_);
 
-    declare_parameter<int>("slave_address");
+    declare_parameter<int>("slave_address", slave_address_);
     slave_address_ = get_parameter("slave_address").as_int();
     RCLCPP_INFO(get_logger(), "Using slave address: %d", slave_address_);
 
-    declare_parameter<bool>("fake_hardware");
+    declare_parameter<bool>("fake_hardware", fake_hardware_);
     fake_hardware_ = get_parameter("fake_hardware").as_bool();
     RCLCPP_INFO(get_logger(), "Using fake hardware: %s", fake_hardware_ ? "true" : "false");
 
@@ -69,32 +88,51 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
         RCLCPP_INFO(get_logger(), "The gripper is activated.");
     }
 
+    // Get topic names from config or use defaults
+    std::string joint_state_topic = "robotiq_2f_gripper/joint_states";
+    std::string finger_distance_topic = "robotiq_2f_gripper/finger_distance";
+    std::string object_detected_topic = "robotiq_2f_gripper/object_grasped";
+    std::string confidence_command_topic = "robotiq_2f_gripper/confidence_command";
+    std::string binary_command_topic = "robotiq_2f_gripper/binary_command";
+    std::string gripper_action_topic = "robotiq_2f_gripper_action";
+    
+    // Override with values from config if available
+    if (topic_names_.find("joint_state") != topic_names_.end()) {
+        joint_state_topic = topic_names_["joint_state"];
+    }
+    if (topic_names_.find("finger_distance_mm") != topic_names_.end()) {
+        finger_distance_topic = topic_names_["finger_distance_mm"];
+    }
+    if (topic_names_.find("object_detected_state") != topic_names_.end()) {
+        object_detected_topic = topic_names_["object_detected_state"];
+    }
+
     action_server_ = rclcpp_action::create_server<SetPosition>(
-        this, "robotiq_2f_gripper_action",
+        this, gripper_action_topic,
         std::bind(&GripperNode::handle_move_goal, this, _1, _2),
         std::bind(&GripperNode::handle_cancel_move, this, _1),
         std::bind(&GripperNode::handle_move_accepted, this, _1));
 
-    joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>("robotiq_2f_gripper/joint_states", 1);
-    finger_distance_publisher_ = create_publisher<std_msgs::msg::Float32>("robotiq_2f_gripper/finger_distance", 1);
+    joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>(joint_state_topic, 1);
+    finger_distance_publisher_ = create_publisher<std_msgs::msg::Float32>(finger_distance_topic, 1);
     timer_1_ = create_wall_timer(
         std::chrono::milliseconds(50), std::bind(&GripperNode::update_joint_state_callback, this));
 
-    gripper_state_publisher_ = create_publisher<std_msgs::msg::Bool>("robotiq_2f_gripper/object_grasped", 1);
+    gripper_state_publisher_ = create_publisher<std_msgs::msg::Bool>(object_detected_topic, 1);
     timer_2_ = create_wall_timer(
         std::chrono::milliseconds(50), std::bind(&GripperNode::update_gripper_state_callback, this));
 
     // Create subscriber for confidence-based gripper control with hysteresis
     gripper_command_subscriber_ = create_subscription<std_msgs::msg::Float32MultiArray>(
-        "robotiq_2f_gripper/confidence_command", 10,
+        confidence_command_topic, 10,
         std::bind(&GripperNode::gripper_command_callback, this, _1));
-    RCLCPP_INFO(get_logger(), "Gripper confidence command subscriber created");
+    RCLCPP_INFO(get_logger(), "Gripper confidence command subscriber created on topic: %s", confidence_command_topic.c_str());
 
     // Create subscriber for direct gripper control (binary open/close)
     gripper_binary_command_subscriber_ = create_subscription<std_msgs::msg::Float32MultiArray>(
-        "robotiq_2f_gripper/binary_command", 10,
+        binary_command_topic, 10,
         std::bind(&GripperNode::gripper_binary_command_callback, this, _1));
-    RCLCPP_INFO(get_logger(), "Gripper binary command subscriber created");
+    RCLCPP_INFO(get_logger(), "Gripper binary command subscriber created on topic: %s", binary_command_topic.c_str());
 
     RCLCPP_INFO(get_logger(), "Gripper node initialized");
 }
