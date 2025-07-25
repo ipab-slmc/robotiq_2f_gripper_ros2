@@ -13,7 +13,6 @@ def generate_launch_description():
         default_value='',
         description='Namespace for the gripper (e.g., left, right)'
     )
-    
     serial_port_arg = DeclareLaunchArgument(
         'serial_port',
         default_value='/dev/ttyUSB0',
@@ -44,6 +43,11 @@ def generate_launch_description():
         default_value='False',
         description='Whether to use fake hardware (if real hardware is not available)'
     )
+    config_file_arg = DeclareLaunchArgument(
+        'config_file',
+        default_value='',
+        description='Path to the configuration YAML file (leave empty to use the default)'
+    )
     rviz2_arg = DeclareLaunchArgument(
         'rviz2',
         default_value='False',
@@ -57,6 +61,7 @@ def generate_launch_description():
         namespace=LaunchConfiguration('namespace'),
         output='screen',
         parameters=[{
+            'config_file': LaunchConfiguration('config_file'),
             'serial_port': LaunchConfiguration('serial_port'),
             'baudrate': LaunchConfiguration('baudrate'),
             'timeout': LaunchConfiguration('timeout'),
@@ -66,8 +71,10 @@ def generate_launch_description():
         }]
     )
 
-    urdf_file = os.path.join(get_package_share_directory('robotiq_2f_gripper_description'), 'urdf', 'example_use_robotiq_2f_140.urdf.xacro')
-    rviz_config_file = os.path.join(get_package_share_directory('robotiq_2f_gripper_description'), 'launch', 'robotiq_2f_gripper.rviz')
+    urdf_file = os.path.join(get_package_share_directory(
+        'robotiq_2f_gripper_description'), 'urdf', 'example_use_robotiq_2f_140.urdf.xacro')
+    rviz_config_file = os.path.join(get_package_share_directory(
+        'robotiq_2f_gripper_description'), 'launch', 'robotiq_2f_gripper.rviz')
 
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
@@ -79,8 +86,9 @@ def generate_launch_description():
     )
 
     # Create a source list that includes the namespace
-    joint_states_topic = [LaunchConfiguration('namespace'), '/robotiq_2f_gripper/joint_states']
-    
+    joint_states_topic = [LaunchConfiguration(
+        'namespace'), '/robotiq_2f_gripper/joint_states']
+
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
@@ -107,6 +115,7 @@ def generate_launch_description():
         action_timeout_arg,
         slave_address_arg,
         fake_hardware_arg,
+        config_file_arg,
         rviz2_arg,
         robotiq_2f_gripper_node,
         rviz2_node,
