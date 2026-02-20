@@ -7,6 +7,8 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <trajectory_msgs/msg/joint_trajectory.hpp>
+#include <trajectory_msgs/msg/joint_trajectory_point.hpp>
 #include <thread>
 #include <string>
 #include <map>
@@ -30,12 +32,13 @@ namespace robotiq_2f_gripper_hardware
         ~GripperNode();
 
     private:
-        std::string serial_port_;
-        int baudrate_;
-        double timeout_;
-        int action_timeout_;
-        int slave_address_;
-        bool fake_hardware_;
+        std::string serial_port_{"/dev/ttyUSB0"};
+        int baudrate_{115200};
+        double timeout_{1.0};
+        int action_timeout_{5};
+        int slave_address_{0x09};
+        bool fake_hardware_{false};
+        bool use_gazebo_{false};
         std::unique_ptr<DefaultDriver> driver_;
 
         // Topic names
@@ -45,6 +48,7 @@ namespace robotiq_2f_gripper_hardware
         std::string finger_distance_mm_topic = "robotiq_2f_gripper/finger_distance_mm";
         std::string confidence_command_topic = "robotiq_2f_gripper/confidence_command";
         std::string binary_command_topic = "robotiq_2f_gripper/binary_command";
+        std::string gazebo_command_topic = "/robotiq_gripper_controller/joint_trajectory";
 
         // Constants (loaded from config)
         double OPEN_THRESHOLD;  // threshold for opening the gripper during confidence-based control
@@ -54,11 +58,13 @@ namespace robotiq_2f_gripper_hardware
         const double MAX_GRIPPER_POSITION_METER = 0.142; // distance between fingers in meters
         const int FULLY_CLOSED_THRESHOLD = 226;          // gripper position value (from hexadecimal gripper system interpreted as int) when first fully closed (226 to 255 is fully closed)
         const double MAX_GRIPPER_POSITION_RAD = 0.7;     // upper limit of the gripper in radians (0.7 is fully closed)
+        const std::string GAZEBO_JOINT_NAME = "RARM_robotiq_85_left_knuckle_joint";
 
         // State variables
-        double gripper_position_;
-        double gripper_speed_;
-        double gripper_force_;
+        double gripper_position_{0.0};
+        double gripper_speed_{0.0};
+        double gripper_force_{0.0};
+        double sim_joint_position_{0.0};
 
         // Variables for confidence-based control with hysteresis
         double previous_confidence_{0.0};
@@ -68,8 +74,11 @@ namespace robotiq_2f_gripper_hardware
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher_;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr object_grasped_publisher_;
         rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr finger_distance_mm_publisher_;
+        rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr trajectory_publisher_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_confidence_command_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr gripper_binary_command_subscriber_;
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscriber_;
+
 
         std::atomic<bool> running_{false};
         sensor_msgs::msg::JointState joint_state_;
@@ -88,6 +97,8 @@ namespace robotiq_2f_gripper_hardware
         void update_object_grasped_callback();
         void gripper_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
         void gripper_binary_command_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+        void joint_state_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
+        void send_gazebo_command(double position);
 
         uint8_t decimalToHex(int value);
         int convertToGripperSystemPosition(double position);

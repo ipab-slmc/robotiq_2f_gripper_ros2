@@ -62,7 +62,22 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
     fake_hardware_ = get_parameter("fake_hardware").as_bool();
     RCLCPP_INFO(get_logger(), "Using fake hardware: %s", fake_hardware_ ? "true" : "false");
 
-    if (!fake_hardware_)
+    declare_parameter<bool>("use_gazebo", false);
+    use_gazebo_ = get_parameter("use_gazebo").as_bool();
+    RCLCPP_INFO(get_logger(), "Using Gazebo simulation: %s", use_gazebo_ ? "true" : "false");
+
+    // Initialize action server early
+    action_server_ = rclcpp_action::create_server<SetPosition>(
+        this, gripper_action_topic,
+        std::bind(&GripperNode::handle_move_goal, this, _1, _2),
+        std::bind(&GripperNode::handle_cancel_move, this, _1),
+        std::bind(&GripperNode::handle_move_accepted, this, _1));
+    
+    RCLCPP_INFO(get_logger(), "╔════════════════════════════════════════════════════════════════╗");
+    RCLCPP_INFO(get_logger(), "║  ACTION SERVER READY: /%s", gripper_action_topic.c_str());
+    RCLCPP_INFO(get_logger(), "╚════════════════════════════════════════════════════════════════╝");
+
+    if (!fake_hardware_ && !use_gazebo_)
     {
         auto serial = std::make_unique<DefaultSerial>();
         serial->set_port(serial_port_);
@@ -76,7 +91,7 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
         if (!connected)
         {
             RCLCPP_ERROR(get_logger(), "The gripper is not connected");
-            return;
+            throw std::runtime_error("The gripper is not connected");
         }
         RCLCPP_INFO(get_logger(), "The gripper is connected.");
 
@@ -88,11 +103,13 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
         RCLCPP_INFO(get_logger(), "The gripper is activated.");
     }
 
-    action_server_ = rclcpp_action::create_server<SetPosition>(
-        this, gripper_action_topic,
-        std::bind(&GripperNode::handle_move_goal, this, _1, _2),
-        std::bind(&GripperNode::handle_cancel_move, this, _1),
-        std::bind(&GripperNode::handle_move_accepted, this, _1));
+    if (use_gazebo_)
+    {
+        trajectory_publisher_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(gazebo_command_topic, 10);
+        joint_state_subscriber_ = create_subscription<sensor_msgs::msg::JointState>(
+            "/joint_states", 10, std::bind(&GripperNode::joint_state_callback, this, _1));
+        RCLCPP_INFO(get_logger(), "Initialized Gazebo mode");
+    }
 
     joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>(joint_state_topic, 1);
     finger_distance_mm_publisher_ = create_publisher<std_msgs::msg::Float32>(finger_distance_mm_topic, 1);
@@ -120,7 +137,7 @@ GripperNode::GripperNode() : Node("robotiq_2f_gripper_node")
 
 GripperNode::~GripperNode()
 {
-    if (!fake_hardware_)
+    if (!fake_hardware_ && !use_gazebo_)
     {
         driver_->deactivate();
         driver_->disconnect();
@@ -139,7 +156,7 @@ rclcpp_action::GoalResponse GripperNode::handle_move_goal(
         return rclcpp_action::GoalResponse::REJECT;
     }
 
-    if (!fake_hardware_)
+    if (!fake_hardware_ && !use_gazebo_)
     {
         if (!driver_->is_gripper_active())
         {
@@ -191,6 +208,45 @@ void GripperNode::execute(
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<SetPosition::Feedback>();
     auto result = std::make_shared<SetPosition::Result>();
+
+    if (use_gazebo_)
+    {
+        send_gazebo_command(goal->target_position);
+
+        auto start_time = std::chrono::steady_clock::now();
+        auto timeout = std::chrono::seconds(action_timeout_);
+
+        // Wait loop
+        while (std::chrono::steady_clock::now() - start_time < timeout)
+        {
+            // Check if we are close to the target
+            // Target position is in meters (0..0.142)
+            // sim_joint_position_ is in radians (0.7..0)
+            // We need to convert goal to radians to compare
+
+            double target_rad = ((-1 * goal->target_position) + MAX_GRIPPER_POSITION_METER) /
+                                MAX_GRIPPER_POSITION_METER * MAX_GRIPPER_POSITION_RAD;
+
+            if (std::abs(sim_joint_position_ - target_rad) < 0.05) // Tolerance 0.05 rad
+            {
+                RCLCPP_INFO(get_logger(), "[Gazebo] Gripper movement completed.");
+                result->success = true;
+                goal_handle->succeed(result);
+                running_ = false;
+                return;
+            }
+
+            feedback->feedback = "Gripper is moving (Gazebo)";
+            goal_handle->publish_feedback(feedback);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        RCLCPP_INFO(get_logger(), "[Gazebo] Gripper movement timed out.");
+        result->success = false;
+        goal_handle->abort(result);
+        running_ = false;
+        return;
+    }
 
     if (fake_hardware_)
     {
@@ -255,7 +311,7 @@ void GripperNode::execute(
 
 void GripperNode::update_joint_state_callback()
 {
-    if (running_)
+    if (running_ || use_gazebo_)
     {
         return;
     }
@@ -300,7 +356,7 @@ void GripperNode::update_joint_state_callback()
 
 void GripperNode::update_object_grasped_callback()
 {
-    if (running_)
+    if (running_ || use_gazebo_)
     {
         return;
     }
@@ -577,11 +633,62 @@ void GripperNode::gripper_binary_command_callback(const std_msgs::msg::Float32Mu
     running_ = false;
 }
 
+void GripperNode::joint_state_callback(const sensor_msgs::msg::JointState::SharedPtr msg)
+{
+    for (size_t i = 0; i < msg->name.size(); ++i)
+    {
+        if (msg->name[i] == GAZEBO_JOINT_NAME)
+        {
+            sim_joint_position_ = msg->position[i];
+            return;
+        }
+    }
+}
+
+void GripperNode::send_gazebo_command(double position)
+{
+    double target_rad = ((-1 * position) + MAX_GRIPPER_POSITION_METER) /
+                        MAX_GRIPPER_POSITION_METER * MAX_GRIPPER_POSITION_RAD;
+
+    target_rad = std::max(0.0, std::min(MAX_GRIPPER_POSITION_RAD, target_rad));
+
+    auto msg = trajectory_msgs::msg::JointTrajectory();
+    msg.joint_names.push_back(GAZEBO_JOINT_NAME);
+
+    auto point = trajectory_msgs::msg::JointTrajectoryPoint();
+    point.positions.push_back(target_rad);
+    point.time_from_start = rclcpp::Duration::from_seconds(0.5);
+
+    msg.points.push_back(point);
+
+    trajectory_publisher_->publish(msg);
+}
+
 int main(int argc, char **argv)
 {
+    std::cout << "[DIAGNOSTIC] robotiq_2f_gripper_node main() starting..." << std::endl;
+    std::cout << "[DIAGNOSTIC] Calling rclcpp::init()..." << std::endl;
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<GripperNode>();
-    rclcpp::spin(node);
+    std::cout << "[DIAGNOSTIC] rclcpp::init() completed successfully" << std::endl;
+    try
+    {
+        std::cout << "[DIAGNOSTIC] Creating GripperNode instance..." << std::endl;
+        auto node = std::make_shared<GripperNode>();
+        std::cout << "[DIAGNOSTIC] GripperNode created successfully, starting spin..." << std::endl;
+        rclcpp::spin(node);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "[ERROR] Exception in GripperNode: " << e.what() << std::endl;
+        rclcpp::shutdown();
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "[ERROR] Unknown exception in GripperNode" << std::endl;
+        rclcpp::shutdown();
+        return 1;
+    }
     rclcpp::shutdown();
     return 0;
 }

@@ -13,6 +13,7 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(robotiq_2f_gripper_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(serial REQUIRED)
@@ -37,6 +38,7 @@ ament_target_dependencies(robotiq_2f_gripper_node
   pluginlib 
   serial
   robotiq_2f_gripper_msgs
+  trajectory_msgs
   std_msgs
   ament_index_cpp
   sensor_msgs 

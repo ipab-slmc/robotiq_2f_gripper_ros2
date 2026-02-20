@@ -13,6 +13,7 @@
   <depend>launch_ros</depend>
   <depend>robotiq_2f_gripper_interfaces</depend>
   <depend>robotiq_2f_gripper_msgs</depend>
+  <depend>trajectory_msgs</depend>
   <depend>yaml-cpp</depend>
   <depend>ament_index_cpp</depend>
 

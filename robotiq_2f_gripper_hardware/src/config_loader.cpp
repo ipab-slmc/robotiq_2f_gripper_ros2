@@ -21,9 +21,9 @@ namespace robotiq_2f_gripper_hardware
             RCLCPP_INFO(get_logger(), "OPEN_THRESHOLD: %f, CLOSE_THRESHOLD: %f", OPEN_THRESHOLD, CLOSE_THRESHOLD);
         }
 
-        catch (const YAML::ParserException &e)
+        catch (const YAML::Exception &e)
         {
-            RCLCPP_ERROR(get_logger(), "Error parsing YAML file: %s - %s", config_file.c_str(), e.what());
+            RCLCPP_ERROR(get_logger(), "Error loading/parsing YAML file: %s - %s", config_file.c_str(), e.what());
             // Use defaults in case of error
             OPEN_THRESHOLD = 0.2;
             CLOSE_THRESHOLD = -0.2;
