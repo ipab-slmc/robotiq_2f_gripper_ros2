@@ -25,24 +25,25 @@ include_directories(
   include
 )
 
-add_executable(robotiq_2f_gripper_node 
+add_executable(robotiq_2f_gripper_node
   src/robotiq_2f_gripper_node.cpp
-  src/config_loader.cpp)
-target_link_libraries(robotiq_2f_gripper_node 
+  src/config_loader.cpp
+)
+target_link_libraries(robotiq_2f_gripper_node PUBLIC
   ${robotiq_2f_gripper_interfaces_LIBRARIES}
-  yaml-cpp)
-ament_target_dependencies(robotiq_2f_gripper_node 
-  rclcpp
-  rclcpp_action
-  hardware_interface 
-  pluginlib 
-  serial
-  robotiq_2f_gripper_msgs
-  trajectory_msgs
-  std_msgs
-  ament_index_cpp
-  sensor_msgs 
-  robotiq_2f_gripper_interfaces
+  yaml-cpp
+  ${robotiq_2f_gripper_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${std_msgs_TARGETS}
+  ${trajectory_msgs_TARGETS}
+  ament_index_cpp::ament_index_cpp
+  hardware_interface::hardware_interface
+  hardware_interface::mock_components
+  pluginlib::pluginlib
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  robotiq_2f_gripper_interfaces::robotiq_2f_gripper_interfaces
+  sensor_msgs::sensor_msgs_library
 )
 
 install(TARGETS robotiq_2f_gripper_node

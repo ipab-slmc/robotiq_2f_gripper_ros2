@@ -54,16 +54,23 @@ add_library(
   src/default_serial.cpp
   src/default_serial_factory.cpp
 )
-target_link_libraries(robotiq_2f_gripper_interfaces atomic)
 target_include_directories(
   robotiq_2f_gripper_interfaces
   PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
+  ${serial_INCLUDE_DIRS}
 )
-ament_target_dependencies(
-  robotiq_2f_gripper_interfaces
-  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+
+target_link_libraries(robotiq_2f_gripper_interfaces
+  PUBLIC
+    atomic
+    hardware_interface::hardware_interface
+    hardware_interface::mock_components
+    pluginlib::pluginlib
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    ${serial_LIBRARIES}
 )
 
 ###############################################################################
