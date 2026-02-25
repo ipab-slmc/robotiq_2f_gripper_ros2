@@ -1,0 +1,47 @@
+# ROS 2 Control Configuration for Robotiq 2F-140 Gripper
+# 
+# This file configures the controller_manager and defines controllers
+# for the Robotiq gripper when using the ros2_control hardware interface.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz - Control loop update rate
+
+    # List of controllers
+    gripper_controller:
+      type: gripper_controllers/GripperActionController
+    
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+
+# Joint State Broadcaster
+# Publishes joint states to /joint_states topic
+joint_state_broadcaster:
+  ros__parameters:
+    publish_rate: 50.0  # Hz
+
+
+# Gripper Action Controller
+# Provides a GripperCommand action interface for controlling the gripper
+# Action topic: /gripper_controller/gripper_cmd (control_msgs/action/GripperCommand)
+gripper_controller:
+  ros__parameters:
+    # Joint to control
+    joint: finger_joint
+    
+    # Action monitoring
+    action_monitor_rate: 20.0  # Hz - How often to publish feedback
+    
+    # Goal tolerance
+    # Goal is considered reached when position is within this tolerance
+    goal_tolerance: 0.01  # radians (or meters depending on joint units)
+    
+    # Maximum effort
+    max_effort: 100.0  # Maximum effort to apply
+    
+    # Stalling detection
+    # If enabled, goal succeeds when gripper stalls (hits an object)
+    allow_stalling: true
+    stall_velocity_threshold: 0.001  # rad/s - Velocity below this is considered stalled
+    stall_timeout: 1.0  # seconds - How long to wait at low velocity before declaring stall

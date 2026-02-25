@@ -114,6 +114,12 @@ install(
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}          # include
 )
 
+# Install URDF/XACRO files
+install(
+    DIRECTORY urdf/
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/urdf
+)
+
 # Install our library.
 install(
   TARGETS robotiq_2f_gripper_interfaces

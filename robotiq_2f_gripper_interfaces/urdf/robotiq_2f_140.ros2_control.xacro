@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!-- 
+  ROS 2 Control Hardware Interface Configuration for Robotiq 2F-140 Gripper
+  
+  This file defines the ros2_control hardware interface for the Robotiq 2F gripper.
+  It can be included in your robot URDF to enable control through the ros2_control framework.
+  
+  Usage:
+    <xacro:include filename="$(find robotiq_2f_gripper_interfaces)/urdf/robotiq_2f_140.ros2_control.xacro" />
+    <xacro:robotiq_2f_140_ros2_control 
+      name="robotiq_gripper"
+      prefix=""
+      serial_port="/dev/ttyUSB0"
+      baudrate="115200"
+      slave_address="9"
+      use_fake_hardware="false"
+    />
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="robotiq_2f_140_ros2_control" params="
+    name:=robotiq_gripper
+    prefix:=''
+    serial_port:=/dev/ttyUSB0
+    baudrate:=115200
+    slave_address:=9
+    timeout:=1.0
+    gripper_closed_position:=0.7
+    gripper_speed_multiplier:=1.0
+    gripper_force_multiplier:=1.0
+    use_fake_hardware:=false
+    fake_sensor_commands:=false
+    use_sim:=false
+    ">
+
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <!-- Select the appropriate plugin based on mode -->
+        <xacro:if value="${use_sim}">
+          <!-- Gazebo simulation -->
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </xacro:if>
+        
+        <xacro:if value="${use_fake_hardware and not use_sim}">
+          <!-- Fake/Mock hardware for testing -->
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="fake_sensor_commands">${fake_sensor_commands}</param>
+          <param name="state_following_offset">0.0</param>
+        </xacro:if>
+        
+        <xacro:unless value="${use_fake_hardware or use_sim}">
+          <!-- Real hardware interface -->
+          <plugin>robotiq_2f_gripper_interfaces/RobotiqGripperHardwareInterface</plugin>
+          
+          <!-- Hardware parameters -->
+          <param name="serial_port">${serial_port}</param>
+          <param name="baudrate">${baudrate}</param>
+          <param name="slave_address">${slave_address}</param>
+          <param name="timeout">${timeout}</param>
+          <param name="gripper_closed_position">${gripper_closed_position}</param>
+          <param name="gripper_speed_multiplier">${gripper_speed_multiplier}</param>
+          <param name="gripper_force_multiplier">${gripper_force_multiplier}</param>
+        </xacro:unless>
+      </hardware>
+
+      <!-- Joint Interfaces -->
+      <!-- The main actuated joint for the gripper -->
+      <joint name="${prefix}finger_joint">
+        <command_interface name="position">
+          <param name="min">0</param>
+          <param name="max">${gripper_closed_position}</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="velocity">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+      </joint>
+
+      <!-- GPIO Interfaces for gripper reactivation -->
+      <xacro:unless value="${use_sim}">
+        <gpio name="reactivate_gripper">
+          <command_interface name="reactivate_gripper_cmd" />
+          <command_interface name="reactivate_gripper_response" />
+        </gpio>
+      </xacro:unless>
+
+      <!-- Additional command interfaces for speed and force control -->
+      <xacro:unless value="${use_sim}">
+        <gpio name="${prefix}finger_joint">
+          <command_interface name="set_gripper_max_velocity" />
+          <command_interface name="set_gripper_max_effort" />
+        </gpio>
+      </xacro:unless>
+
+    </ros2_control>
+
+  </xacro:macro>
+
+</robot>

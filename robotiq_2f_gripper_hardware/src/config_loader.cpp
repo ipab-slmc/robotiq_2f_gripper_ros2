@@ -1,6 +1,4 @@
 #include <robotiq_2f_gripper_hardware/robotiq_2f_gripper_node.hpp>
-#include <iostream>
-#include <fstream>
 #include <yaml-cpp/yaml.h>
 
 namespace robotiq_2f_gripper_hardware

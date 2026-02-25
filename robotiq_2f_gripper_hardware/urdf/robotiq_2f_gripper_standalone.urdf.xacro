@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!-- 
+  Standalone URDF for Robotiq 2F-140 Gripper with ROS 2 Control
+  
+  This file provides a complete robot description including:
+  - Gripper mechanical structure
+  - ROS 2 Control hardware interface configuration
+  
+  Used for standalone testing of the gripper with ros2_control.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robotiq_2f_gripper">
+
+  <!-- Arguments -->
+  <xacro:arg name="tf_prefix" default=""/>
+  <xacro:arg name="serial_port" default="/dev/ttyUSB0"/>
+  <xacro:arg name="baudrate" default="115200"/>
+  <xacro:arg name="slave_address" default="9"/>
+  <xacro:arg name="use_fake_hardware" default="false"/>
+  <xacro:arg name="use_sim" default="false"/>
+
+  <!-- Include the gripper mechanical description -->
+  <xacro:include filename="$(find robotiq_2f_gripper_description)/urdf/robotiq_2f_140.xacro" />
+
+  <!-- Include the ros2_control configuration -->
+  <xacro:include filename="$(find robotiq_2f_gripper_interfaces)/urdf/robotiq_2f_140.ros2_control.xacro" />
+
+  <!-- Create a world link for standalone operation -->
+  <link name="world" />
+
+  <!-- Attach the gripper to the world -->
+  <xacro:robotiq_2f_140 parent="world" tf_prefix="$(arg tf_prefix)">
+    <origin xyz="0 0 0" rpy="0 0 0"/> 
+  </xacro:robotiq_2f_140>
+
+  <!-- Add ros2_control hardware interface -->
+  <xacro:robotiq_2f_140_ros2_control
+    name="robotiq_gripper"
+    prefix="$(arg tf_prefix)"
+    serial_port="$(arg serial_port)"
+    baudrate="$(arg baudrate)"
+    slave_address="$(arg slave_address)"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    use_sim="$(arg use_sim)"
+  />
+
+</robot>

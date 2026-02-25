@@ -61,6 +61,11 @@ install(DIRECTORY
 )
 
 install(DIRECTORY 
+  urdf/
+  DESTINATION share/${PROJECT_NAME}/urdf
+)
+
+install(DIRECTORY 
   launch 
   DESTINATION share/${PROJECT_NAME}
 )

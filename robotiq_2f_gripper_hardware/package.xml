@@ -17,6 +17,19 @@
   <depend>yaml-cpp</depend>
   <depend>ament_index_cpp</depend>
 
+  <!-- ROS 2 Control Dependencies -->
+  <depend>controller_manager</depend>
+  <depend>gripper_controllers</depend>
+  <depend>joint_state_broadcaster</depend>
+  <depend>ros2_control</depend>
+  <depend>ros2_controllers</depend>
+  <depend>hardware_interface</depend>
+  <depend>robotiq_2f_gripper_description</depend>
+
+  <!-- Execution dependencies for launch files -->
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
