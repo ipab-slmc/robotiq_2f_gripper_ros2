@@ -10,7 +10,7 @@
     <xacro:robotiq_2f_140_ros2_control 
       name="robotiq_gripper"
       prefix=""
-      serial_port="/dev/ttyUSB0"
+      com_port="/dev/ttyUSB0"
       baudrate="115200"
       slave_address="9"
       use_fake_hardware="false"
@@ -21,7 +21,7 @@
   <xacro:macro name="robotiq_2f_140_ros2_control" params="
     name:=robotiq_gripper
     prefix:=''
-    serial_port:=/dev/ttyUSB0
+    com_port:=/dev/ttyUSB0
     baudrate:=115200
     slave_address:=9
     timeout:=1.0
@@ -53,7 +53,7 @@
           <plugin>robotiq_2f_gripper_interfaces/RobotiqGripperHardwareInterface</plugin>
           
           <!-- Hardware parameters -->
-          <param name="serial_port">${serial_port}</param>
+          <param name="COM_port">${com_port}</param>
           <param name="baudrate">${baudrate}</param>
           <param name="slave_address">${slave_address}</param>
           <param name="timeout">${timeout}</param>

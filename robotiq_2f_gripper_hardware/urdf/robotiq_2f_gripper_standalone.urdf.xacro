@@ -12,7 +12,7 @@
 
   <!-- Arguments -->
   <xacro:arg name="tf_prefix" default=""/>
-  <xacro:arg name="serial_port" default="/dev/ttyUSB0"/>
+  <xacro:arg name="com_port" default="/dev/ttyUSB0"/>
   <xacro:arg name="baudrate" default="115200"/>
   <xacro:arg name="slave_address" default="9"/>
   <xacro:arg name="use_fake_hardware" default="false"/>
@@ -36,7 +36,7 @@
   <xacro:robotiq_2f_140_ros2_control
     name="robotiq_gripper"
     prefix="$(arg tf_prefix)"
-    serial_port="$(arg serial_port)"
+    com_port="$(arg com_port)"
     baudrate="$(arg baudrate)"
     slave_address="$(arg slave_address)"
     use_fake_hardware="$(arg use_fake_hardware)"

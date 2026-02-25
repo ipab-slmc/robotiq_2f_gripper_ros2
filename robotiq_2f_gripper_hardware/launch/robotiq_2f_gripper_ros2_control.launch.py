@@ -13,7 +13,7 @@ Usage:
   ros2 launch robotiq_2f_gripper_hardware robotiq_2f_gripper_ros2_control.launch.py use_fake_hardware:=true
 
   # With custom serial port:
-  ros2 launch robotiq_2f_gripper_hardware robotiq_2f_gripper_ros2_control.launch.py serial_port:=/dev/ttyUSB1
+  ros2 launch robotiq_2f_gripper_hardware robotiq_2f_gripper_ros2_control.launch.py com_port:=/dev/ttyUSB1
 
 Command the gripper:
   ros2 action send_goal /gripper_controller/gripper_cmd control_msgs/action/GripperCommand "{command: {position: 0.7, max_effort: 50.0}}"
@@ -39,9 +39,9 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            'serial_port',
+            'com_port',
             default_value='/dev/ttyUSB1',
-            description='Serial port for the gripper'
+            description='Serial port for the gripper (COM_port parameter)'
         )
     )
 
@@ -86,7 +86,7 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
-    serial_port = LaunchConfiguration('serial_port')
+    com_port = LaunchConfiguration('com_port')
     baudrate = LaunchConfiguration('baudrate')
     slave_address = LaunchConfiguration('slave_address')
     use_fake_hardware = LaunchConfiguration('use_fake_hardware')
@@ -102,7 +102,7 @@ def generate_launch_description():
                 'urdf',
                 'robotiq_2f_gripper_standalone.urdf.xacro'
             ]),
-            ' serial_port:=', serial_port,
+            ' com_port:=', com_port,
             ' baudrate:=', baudrate,
             ' slave_address:=', slave_address,
             ' use_fake_hardware:=', use_fake_hardware,
