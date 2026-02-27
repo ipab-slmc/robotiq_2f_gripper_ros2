@@ -27,21 +27,11 @@ joint_state_broadcaster:
 # Action topic: /gripper_controller/gripper_cmd (control_msgs/action/GripperCommand)
 gripper_controller:
   ros__parameters:
-    # Joint to control
+    # Joint to cntrol
     joint: finger_joint
-    
-    # Action monitoring
     action_monitor_rate: 20.0  # Hz - How often to publish feedback
-    
-    # Goal tolerance
-    # Goal is considered reached when position is within this tolerance
     goal_tolerance: 0.01  # radians (or meters depending on joint units)
-    
-    # Maximum effort
     max_effort: 100.0  # Maximum effort to apply
-    
-    # Stalling detection
-    # If enabled, goal succeeds when gripper stalls (hits an object)
-    allow_stalling: true
+    allow_stalling: true # If enabled, goal succeeds when gripper stalls (hits an object)
     stall_velocity_threshold: 0.001  # rad/s - Velocity below this is considered stalled
     stall_timeout: 1.0  # seconds - How long to wait at low velocity before declaring stall
