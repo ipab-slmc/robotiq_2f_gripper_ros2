@@ -156,6 +156,14 @@ def generate_launch_description():
         output='screen',
     )
 
+    # Spawn Gripper Trajectory Controller (inactive by default)
+    spawn_gripper_trajectory_controller = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['gripper_trajectory_controller', '--inactive', '--controller-manager', '/controller_manager'],
+        output='screen',
+    )
+
     # Delay spawning controllers after controller_manager starts
     spawn_controllers_callback = RegisterEventHandler(
         event_handler=OnProcessStart(
@@ -163,6 +171,7 @@ def generate_launch_description():
             on_start=[
                 spawn_joint_state_broadcaster,
                 spawn_gripper_controller,
+                spawn_gripper_trajectory_controller,
             ]
         )
     )
